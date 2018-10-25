@@ -1,0 +1,136 @@
+---
+title: "GEO Normal Tissue Gene Expression/Variant Data"
+author: "Dustin Miller"
+date: "10/25/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, python.reticulate = FALSE)
+#Load packag(es)
+library(tidyverse)
+library(magrittr)
+library(stats)
+```
+
+###Before you begin
+Please save this file to a directory where you want your data saved to. Then, set your working directory in RStudio to the source of the file location.
+
+###Download and read in data from GEO that includes patient ID and cancer type. Series: [GSE62944](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE62944)
+```{r}
+geoNormalData <- read_tsv("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE62944&format=file&file=GSE62944%5F06%5F01%5F15%5FTCGA%5F24%5FNormal%5FCancerType%5FSamples%2Etxt%2Egz/GSE62944_06_01_15_TCGA_24_Normal_CancerType_Samples.txt.gz", col_names = c("patient", "cancerType"))
+
+```
+
+###Download tar file with GEO raw expression data. This tar file contains various txt files. Series: [GSE62944](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE62944)
+```{r}
+#Default will download to users downloads folder unless user changes "destfile = "
+#download.file("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE62944&format=file", destfile = "GSE62944_RAW.tar")
+```
+
+###Extract TPM file from tar file and remove tar file
+```{bash}
+#Assuming "destfile = " above was not changed, this will extract the TPM file of interest and remove files not of interest. If "destfile = " was changes agove, change cd directory accordingly.
+#tar zxvf GSE62944_RAW.tar GSM1697009_06_01_15_TCGA_24.normal_Rsubread_TPM.txt.gz
+#rm -r GSE62944_RAW.tar
+```
+
+###Read in TPM file to RStudio. This file contains gene expression values of normal tissues for each patient
+```{r}
+expressionData <- read_tsv("GSM1697009_06_01_15_TCGA_24.normal_Rsubread_TPM.txt.gz")
+```
+
+###Determine how many patients have particlar cancer type and view top 5
+```{r}
+cancerTypes <- count(geoNormalData, cancerType) %>% arrange(desc(n))
+head(cancerTypes, 5)
+```
+
+###Create dataset with only BRCA data as this cancer type has highest number of patients
+```{r}
+brcaData <- filter(geoNormalData, cancerType == cancerTypes$cancerType[1])
+```
+
+###Transpose expressionData to place patients as rows and genes as columns 
+```{r}
+expressionDataTranspose <- column_to_rownames(expressionData, var = "X1") %>% t()
+expressionDataTranspose <- cbind(patient = rownames(expressionDataTranspose), expressionDataTranspose)
+```
+
+###Join BRCA only patients to gene expression data, making totalData data frame
+```{r}
+totalData <- inner_join(as.tibble(expressionDataTranspose), brcaData, by = "patient")
+```
+
+###Download Teir 1 data only from [Cancer Gene Census](https://cancer.sanger.ac.uk/cosmic/census?tier=1) and place in current working directory. This was downloaded, Oct. 22, 2018.
+```{r}
+censusData <- read_tsv("Census_allTue Oct 23 01_01_01 2018.tsv")
+```
+
+###Keep only data where gene has been found to be mutated in germline and is a TSG-only
+```{r}
+censusTSG <- filter(censusData, censusData$`Role in Cancer` == "TSG", censusData$Germline == "yes")
+vectorTSG <- as.vector(censusTSG$`Gene Symbol`)
+```
+
+###Create new dataset that includes only TSG's from vectorTSG in totalData
+```{r}
+totalDataTsg <- select(totalData, patient, vectorTSG)
+write_tsv(totalDataTsg,"totalDataTsg.tsv")
+```
+
+###This python script is used to make the totalDataTsg dataset tidy
+```{python}
+with open("totalDataTsg.tsv") as dataFile, open("totalDataTsgTidy.tsv", 'w') as outputFile:
+    lineCount = 0
+    header = ""
+    for line in dataFile:
+        if lineCount == 0:
+            lineCount += 1
+            line = line.strip("\n").split("\t")
+            header = line
+            outputFile.write("patient\tgene\texpression\n")
+        else:
+            line = line.strip("\n").split("\t")
+            patient = line[0]
+            for i in range(1, len(line)):
+                outputFile.write(patient + "\t" + header[i] + "\t" + line[i] + "\n")
+            
+```
+
+###Plot all genes by expression value
+```{r}
+totalDataTsgTidy <- read_tsv("totalDataTsgTidy.tsv")
+ggplot(totalDataTsgTidy, aes(gene, expression)) + geom_boxplot() + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+
+ggsave("boxPlotAllGenes.png")
+```
+
+###Summary of gene expression that includes median, mean, min value, max value, standard deviation (`stDev`), arranged in decending order by standard deviation
+```{r}
+totalDataTsgSummary <- group_by(totalDataTsgTidy, gene) %>% summarize(median = median(expression), mean = mean(expression), min = min(expression), max = max(expression), stDev = sd(expression)) %>% arrange(desc(stDev))
+```
+
+
+###Boxplot n genes with highest or lowest standard deviation
+```{r}
+#Function to plot top or bottom n genes with highest or lowest standard deviation, default is top 10 genes
+boxPlotGenesBySd <- function(tidyDataSet, howManyGenes = 10){
+  #Determine which genes have highest standard deviation
+  genesWithHighestStDev <- top_n(totalDataTsgSummary, n = howManyGenes, stDev) %>% pull(gene)
+  print(filter(totalDataTsgTidy, gene %in% genesWithHighestStDev) %>% ggplot(aes(gene, expression)) + geom_boxplot() 
+        + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5)))
+}
+
+#Boxplot of top 5 genes
+boxPlotGenesBySd(totalDataTsgTidy, 5)
+
+#Use to save plot as png
+ggsave("boxPlotTop5.png")
+
+#Boxplot of top 10 genes
+boxPlotGenesBySd(totalDataTsgTidy, 10)
+
+#Use to save plot as png
+ggsave("boxPlotTop10.png")
+```
