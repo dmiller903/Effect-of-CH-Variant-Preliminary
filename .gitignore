@@ -1,5 +1,7 @@
 #User defined files to ignore
 *.png
 *.gz
-*TSG.tsv
-*Tidy.tsv
+*.vcf
+*Patients.tsv
+.Rhistory
+
