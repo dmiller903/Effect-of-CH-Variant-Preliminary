@@ -158,18 +158,26 @@ brcaCombinedData <- inner_join(brcaTotalDataTsgTidy, brcaGenotypeData)
 
 # Create a dataset with depths 20 or above
 brcaCombinedDataDepth20Above <- filter(brcaCombinedData, depth >= 20)
+
+# Create a dataset with depths 20 or above, HIGH variants only
+brcaHighOnly <- filter(brcaCombinedDataDepth20Above, impact_severity == "HIGH")
+
+# Change the order in which the genotypes will appear on graphs
+brcaCombinedDataDepth20Above$genotype <- factor(brcaCombinedDataDepth20Above$genotype, levels = c("HOM_REF", "HET", "HOM_ALT"))
+
+brcaHighOnly$genotype <- factor(brcaHighOnly$genotype, levels = c("HOM_REF", "HET", "HOM_ALT"))
 ```
 
 ### BRCA Plots using dataset with depths 20 or above
 ```{r}
 
 # Impact Severity
-ggplot(brcaCombinedDataDepth20Above) +
-  geom_boxplot(mapping = aes(x = gene, y = expression, color = impact_severity)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle("BRCA: Impact Severity Effect on Gene Expression in Normal Tissue")
+#ggplot(brcaCombinedDataDepth20Above) +
+  #geom_boxplot(mapping = aes(x = gene, y = expression, color = impact_severity)) +
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  #ggtitle("BRCA: Impact Severity Effect on Gene Expression in Normal Tissue")
 
-ggsave("brcaExpressionByImpactSeverity.png", width = 20, height = 10)
+#ggsave("brcaExpressionByImpactSeverity.png", width = 20, height = 10)
 
 # Genotype
 ggplot(brcaCombinedDataDepth20Above) +
@@ -177,18 +185,18 @@ ggplot(brcaCombinedDataDepth20Above) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   ggtitle("BRCA: Genotype Effect on Gene Expression in Normal Tissue")
 
-ggsave("brcaExpressionByGenotype.png", width = 20, height = 10)
+#ggsave("brcaExpressionByGenotype.png", width = 20, height = 10)
 
 # Mutations per gene
-brcaMutationsPerGene <- group_by(brcaCombinedDataDepth20Above, gene, patient) %>% summarise(numberVariants = n(), avgExpression = mean(expression))
+#brcaMutationsPerGene <- group_by(brcaCombinedDataDepth20Above, gene, patient) %>% summarise(numberVariants = n(), avgExpression = mean(expression))
 
-ggplot(brcaMutationsPerGene) +
-  geom_raster(mapping = aes(x = gene, fill = avgExpression, y = numberVariants)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_gradientn(colours=c("#56B4E9","#D55E00")) +
-  labs( x = "Gene", y = "Number of Variants per Patient", fill = "Average Gene Expression", title ="BRCA: The Effect of the Number of Variants on Gene Expression in Normal Tissue")
+#ggplot(brcaMutationsPerGene) +
+  #geom_raster(mapping = aes(x = gene, fill = avgExpression, y = numberVariants)) +
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  #scale_fill_gradientn(colours=c("#56B4E9","#D55E00")) +
+  #labs( x = "Gene", y = "Number of Variants per Patient", fill = "Average Gene Expression", title ="BRCA: The Effect of the Number of Variants on Gene Expression in Normal Tissue")
 
-ggsave("brcaMutationsPerGene.png")
+#ggsave("brcaMutationsPerGene.png")
 ```
 
 
@@ -200,6 +208,14 @@ kircCombinedData <- inner_join(kircTotalDataTsgTidy, kircGenotypeData)
 
 # Create a dataset with depths 20 or above
 kircCombinedDataDepth20Above <- filter(kircCombinedData, depth >= 20)
+
+# Create a dataset with depths 20 or above, HIGH variants only
+kircHighOnly <- filter(kircCombinedDataDepth20Above, impact_severity == "HIGH")
+
+# Change the order in which the genotypes will appear on graphs
+kircCombinedDataDepth20Above$genotype <- factor(kircCombinedDataDepth20Above$genotype, levels = c("HOM_REF", "HET", "HOM_ALT"))
+
+kircHighOnly$genotype <- factor(kircHighOnly$genotype, levels = c("HOM_REF", "HET", "HOM_ALT"))
 ```
 
 ```{r}
@@ -244,6 +260,21 @@ for (i in vectorTSG) {
   ggsave(file)
 }
 
+# HIGH Impact Only
+brcaTsgUnique <- unique(brcaHighOnly$gene)
+for (i in brcaTsgUnique) {
+  temp <- filter(brcaHighOnly, gene == i)
+  if (length(unique(temp$genotype)) > 1) {
+    (ggplot(temp) +
+    geom_boxplot(mapping = aes(x = gene, y = log(expression), color = genotype)) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    ggtitle("BRCA: Genotype Effect on Gene Expression in Normal Tissue, HIGH Impact Only"))
+  
+    file <- paste("brca_individual_gene_plots/", "brca", i, "_HighImpact.png", sep = "")
+    ggsave(file)
+  }
+}
+
 ```
 
 ### KIRC: Create individual plots for each gene, looking at effect of genotype on exprssion. Expression has been log transformed
@@ -257,6 +288,21 @@ for (i in vectorTSG) {
   
   file <- paste("kirc_individual_gene_plots/", "kirc", i, ".png", sep = "")
   ggsave(file)
+}
+
+# HIGH Impact Only
+kircTsgUnique <- unique(kircHighOnly$gene)
+for (i in kircTsgUnique) {
+  temp <- filter(kircHighOnly, gene == i)
+  if (length(unique(temp$genotype)) > 1) {
+    (ggplot(temp) +
+    geom_boxplot(mapping = aes(x = gene, y = log(expression), color = genotype)) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    ggtitle("KIRC: Genotype Effect on Gene Expression in Normal Tissue, HIGH Impact Only"))
+  
+    file <- paste("kirc_individual_gene_plots/", "kirc", i, "_HighImpact.png", sep = "")
+    ggsave(file)
+  }
 }
 
 ```
