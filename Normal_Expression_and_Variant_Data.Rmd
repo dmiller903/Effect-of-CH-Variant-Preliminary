@@ -13,70 +13,70 @@ library(magrittr)
 library(stats)
 ```
 
-###Before you begin
+### Before you begin
 Please save this file to a directory where you want your data saved to. Then, set your working directory in RStudio to the source of the file location.
 
-###Download and read in data from GEO that includes patient ID and cancer type. Series: [GSE62944](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE62944)
+### Download and read in data from GEO that includes patient ID and cancer type. Series: [GSE62944](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE62944)
 ```{r}
 geoNormalData <- read_tsv("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE62944&format=file&file=GSE62944%5F06%5F01%5F15%5FTCGA%5F24%5FNormal%5FCancerType%5FSamples%2Etxt%2Egz/GSE62944_06_01_15_TCGA_24_Normal_CancerType_Samples.txt.gz", col_names = c("patient", "cancerType"))
 
 ```
 
-###Download tar file with GEO raw expression data. This tar file contains various txt files. Series: [GSE62944](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE62944)
+### Download tar file with GEO raw expression data. This tar file contains various txt files. Series: [GSE62944](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE62944)
 ```{r}
 #Default will download to users downloads folder unless user changes "destfile = "
 #download.file("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE62944&format=file", destfile = "GSE62944_RAW.tar")
 ```
 
-###Extract TPM file from tar file and remove tar file
+### Extract TPM file from tar file and remove tar file
 ```{bash}
 #Assuming "destfile = " above was not changed, this will extract the TPM file of interest and remove files not of interest. If "destfile = " was changes agove, change cd directory accordingly.
 #tar zxvf GSE62944_RAW.tar GSM1697009_06_01_15_TCGA_24.normal_Rsubread_TPM.txt.gz
 #rm -r GSE62944_RAW.tar
 ```
 
-###Read in TPM file to RStudio. This file contains gene expression values of normal tissues for each patient
+### Read in TPM file to RStudio. This file contains gene expression values of normal tissues for each patient
 ```{r}
 expressionDataNormal <- read_tsv("GSM1697009_06_01_15_TCGA_24.normal_Rsubread_TPM.txt.gz")
 ```
 
-###Determine how many patients have particlar cancer type and view top 5
+### Determine how many patients have particlar cancer type and view top 5
 ```{r}
 cancerTypes <- count(geoNormalData, cancerType) %>% arrange(desc(n))
 head(cancerTypes, 5)
 ```
 
-###Create dataset with only BRCA data and another with KIRC as these cancer types have highest number of patients
+### Create dataset with only BRCA data and another with KIRC as these cancer types have highest number of patients
 ```{r}
 brcaData <- filter(geoNormalData, cancerType == 'BRCA')
 
 kircData <- filter(geoNormalData, cancerType == 'KIRC')
 ```
 
-###Transpose expressionData to place patients as rows and genes as columns 
+### Transpose expressionData to place patients as rows and genes as columns 
 ```{r}
 expressionDataTranspose <- column_to_rownames(expressionDataNormal, var = "X1") %>% t()
 expressionDataTranspose <- cbind(patient = rownames(expressionDataTranspose), expressionDataTranspose)
 ```
 
-###Join BRCA only patients and KIRC only patients to gene expression data, making totalData data frame for each cancer type
+### Join BRCA only patients and KIRC only patients to gene expression data, making totalData data frame for each cancer type
 ```{r}
 brcaTotalData <- inner_join(as_tibble(expressionDataTranspose), brcaData, by = "patient")
 kircTotalData <- inner_join(as_tibble(expressionDataTranspose), kircData, by = "patient")
 ```
 
-###Download Teir 1 data only from [Cancer Gene Census](https://cancer.sanger.ac.uk/cosmic/census?tier=1) and place in current working directory. This was downloaded, Oct. 22, 2018.
+### Download Teir 1 data only from [Cancer Gene Census](https://cancer.sanger.ac.uk/cosmic/census?tier=1) and place in current working directory. This was downloaded, Oct. 22, 2018.
 ```{r}
 censusData <- read_tsv("Census_allTue Oct 23 01_01_01 2018.tsv")
 ```
 
-###Keep only data where gene has been found to be mutated in germline and is a TSG-only
+### Keep only data where gene has been found to be mutated in germline and is a TSG-only
 ```{r}
 censusTSG <- filter(censusData, censusData$`Role in Cancer` == "TSG", censusData$Germline == "yes")
 vectorTSG <- as.vector(censusTSG$`Gene Symbol`)
 ```
 
-###Create new datasets that include only TSG's from vectorTSG in brcaTotalData and kircTotalData
+### Create new datasets that include only TSG's from vectorTSG in brcaTotalData and kircTotalData
 ```{r}
 brcaTotalDataTsg <- select(brcaTotalData, patient, vectorTSG)
 kircTotalDataTsg <- select(kircTotalData, patient, vectorTSG)
@@ -84,7 +84,7 @@ write_tsv(brcaTotalDataTsg,"brcaTotalDataTsg.tsv")
 write_tsv(kircTotalDataTsg,"kircTotalDataTsg.tsv")
 ```
 
-###This python script is used to make the brcaTotalDataTsg dataset tidy
+### This python script is used to make the brcaTotalDataTsg dataset tidy and remove last portion of patient IDs
 ```{python}
 import re
 with open("brcaTotalDataTsg.tsv") as dataFile, open("brcaTotalDataTsgTidy.tsv", 'w') as outputFile:
@@ -105,7 +105,7 @@ with open("brcaTotalDataTsg.tsv") as dataFile, open("brcaTotalDataTsgTidy.tsv", 
             
 ```
 
-###This python script is used to make the kircTotalDataTsg dataset tidy
+### This python script is used to make the kircTotalDataTsg dataset tidy and remove last portion of patient IDs
 ```{python}
 import re
 with open("kircTotalDataTsg.tsv") as dataFile, open("kircTotalDataTsgTidy.tsv", 'w') as outputFile:
@@ -126,68 +126,12 @@ with open("kircTotalDataTsg.tsv") as dataFile, open("kircTotalDataTsgTidy.tsv", 
             
 ```
 
-
-###Plot all TS genes by expression value
+### Imports tidy data from previous python scripts
 ```{r}
 brcaTotalDataTsgTidy <- read_tsv("brcaTotalDataTsgTidy.tsv")
+
 kircTotalDataTsgTidy <- read_tsv("kircTotalDataTsgTidy.tsv")
 
-ggplot(brcaTotalDataTsgTidy, aes(gene, expression)) + geom_boxplot() + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
-
-ggsave("brcaBoxPlotTS.png")
-
-ggplot(kircTotalDataTsgTidy, aes(gene, expression)) + geom_boxplot() + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
-
-ggsave("kircBoxPlotTS.png")
-```
-
-```{bash}
-rm brcaTotalDataTsg.tsv kircTotalDataTsg.tsv brcaTotalDataTsgTidy.tsv kircTotalDataTsgTidy.tsv
-```
-
-###Summary of gene expression that includes median, mean, min value, max value, standard deviation (`stDev`), arranged in decending order by standard deviation
-```{r}
-#Breast Cancer Patients
-brcaTotalDataTsgSummary <- group_by(brcaTotalDataTsgTidy, gene) %>% summarize(median = median(expression), mean = mean(expression), min = min(expression), max = max(expression), stDev = sd(expression)) %>% arrange(desc(stDev))
-
-#Kidney Renal Clear Cell Carcinoma Patients
-kircTotalDataTsgSummary <- group_by(kircTotalDataTsgTidy, gene) %>% summarize(median = median(expression), mean = mean(expression), min = min(expression), max = max(expression), stDev = sd(expression)) %>% arrange(desc(stDev))
-```
-
-
-###Boxplot n genes with highest or lowest standard deviation
-```{r}
-#Function to plot top or bottom n genes with highest or lowest standard deviation, default is top 10 genes
-boxPlotGenesBySd <- function(tidyDataSet, tsgSummary, howManyGenes = 10){
-  #Determine which genes have highest standard deviation
-  genesWithHighestStDev <- top_n(tsgSummary, n = howManyGenes, stDev) %>% pull(gene)
-  print(filter(tidyDataSet, gene %in% genesWithHighestStDev) %>% ggplot(aes(gene, expression)) + geom_boxplot() 
-        + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5)))
-}
-
-#Boxplot of top 5 genes BRCA
-boxPlotGenesBySd(brcaTotalDataTsgTidy, brcaTotalDataTsgSummary, 5)
-
-#Use to save plot as png
-ggsave("brcaBoxPlotTop5.png")
-
-#Boxplot of top 10 genes BRCA
-boxPlotGenesBySd(brcaTotalDataTsgTidy, brcaTotalDataTsgSummary, 10)
-
-#Use to save plot as png
-ggsave("brcaBoxPlotTop10.png")
-
-#Boxplot of top 5 genes KIRC
-boxPlotGenesBySd(kircTotalDataTsgTidy, kircTotalDataTsgSummary, 5)
-
-#Use to save plot as png
-ggsave("kircBoxPlotTop5.png")
-
-#Boxplot of top 10 genes BRCA
-boxPlotGenesBySd(kircTotalDataTsgTidy, kircTotalDataTsgSummary, 10)
-
-#Use to save plot as png
-ggsave("kircBoxPlotTop10.png")
 ```
 
 ### Exports a file with all the patients for a particular type of cancer
@@ -201,16 +145,25 @@ kircPatients <- rename(kircPatients, patient = value)
 write_tsv(kircPatients, "kircPatients.tsv")
 ```
 
+### Removes unessesary files
+```{bash}
+rm brcaTotalDataTsg.tsv kircTotalDataTsg.tsv brcaTotalDataTsgTidy.tsv kircTotalDataTsgTidy.tsv
+``` 
+
 ### Combine brca expression and genotype data
 ```{r}
 brcaGenotypeData <- read_tsv("brca_gemini_query_tidy_simplifiedGenotype.vcf")
 
 brcaCombinedData <- inner_join(brcaTotalDataTsgTidy, brcaGenotypeData)
 
+# Create a dataset with depths 20 or above
 brcaCombinedDataDepth20Above <- filter(brcaCombinedData, depth >= 20)
+```
 
-hist(brcaCombinedDataDepth20Above$expression)
+### BRCA Plots using dataset with depths 20 or above
+```{r}
 
+# Impact Severity
 ggplot(brcaCombinedDataDepth20Above) +
   geom_boxplot(mapping = aes(x = gene, y = expression, color = impact_severity)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
@@ -218,6 +171,7 @@ ggplot(brcaCombinedDataDepth20Above) +
 
 ggsave("brcaExpressionByImpactSeverity.png", width = 20, height = 10)
 
+# Genotype
 ggplot(brcaCombinedDataDepth20Above) +
   geom_boxplot(mapping = aes(x = gene, y = expression, color = genotype)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
@@ -225,59 +179,7 @@ ggplot(brcaCombinedDataDepth20Above) +
 
 ggsave("brcaExpressionByGenotype.png", width = 20, height = 10)
 
-brcaGeneSummary <- brcaCombinedDataDepth20Above %>% group_by(gene, impact_severity) %>% summarise(avg_expression = mean(expression))
-
-brcaCombinedDataHighImpact <- filter(brcaCombinedDataDepth20Above, impact_severity == "HIGH")
-
-brcaHighImpactSummary <- group_by(brcaCombinedDataHighImpact, gene) %>% summarise(avg_expression = mean(expression), num_patients = n_distinct(patient)) %>% filter(num_patients >= 10)
-
-ggplot(brcaHighImpactSummary) +
-  geom_point(mapping = aes(x = gene, y = avg_expression, colour = factor(num_patients))) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ylim(0,250)
-
-ggsave("brcaExpressionByHighImpact.png", width = 10, height = 10)
-```
-
-### Combine brca expression and genotype data
-```{r}
-kircGenotypeData <- read_tsv("kirc_gemini_query_tidy_simplifiedGenotype.vcf")
-
-kircCombinedData <- inner_join(kircTotalDataTsgTidy, kircGenotypeData)
-
-kircCombinedDataDepth20Above <- filter(kircCombinedData, depth >= 20)
-
-hist(kircCombinedDataDepth20Above$expression)
-
-ggplot(kircCombinedDataDepth20Above) +
-  geom_boxplot(mapping = aes(x = gene, y = expression, color = impact_severity)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle("KIRC: Impact Severity on Gene Expression in Normal Tissue")
-
-ggsave("kircExpressionByImpactSeverity.png", width = 20, height = 10)
-
-ggplot(kircCombinedDataDepth20Above) +
-  geom_boxplot(mapping = aes(x = gene, y = expression, color = genotype)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle("KIRC: Genotype Effect on Gene Expression in Normal Tissue")
-
-ggsave("kircExpressionByGenotype.png", width = 20, height = 10)
-
-kircGeneSummary <- kircCombinedDataDepth20Above %>% group_by(gene, impact_severity) %>% summarise(avg_expression = mean(expression))
-
-kircCombinedDataHighImpact <- filter(kircCombinedDataDepth20Above, impact_severity == "HIGH")
-
-kircHighImpactSummary <- group_by(kircCombinedDataHighImpact, gene) %>% summarise(avg_expression = mean(expression), num_patients = n_distinct(patient)) %>% filter(num_patients >= 10)
-
-ggplot(kircHighImpactSummary) +
-  geom_point(mapping = aes(x = gene, y = avg_expression, colour = factor(num_patients))) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ylim(0,250)
-
-ggsave("kircExpressionByHighImpact.png", width = 10, height = 10)
-```
-
-```{r}
+# Mutations per gene
 brcaMutationsPerGene <- group_by(brcaCombinedDataDepth20Above, gene, patient) %>% summarise(numberVariants = n(), avgExpression = mean(expression))
 
 ggplot(brcaMutationsPerGene) +
@@ -287,20 +189,77 @@ ggplot(brcaMutationsPerGene) +
   labs( x = "Gene", y = "Number of Variants per Patient", fill = "Average Gene Expression", title ="BRCA: The Effect of the Number of Variants on Gene Expression in Normal Tissue")
 
 ggsave("brcaMutationsPerGene.png")
-
-kircMutationsPerGene <- group_by(kircCombinedDataDepth20Above, gene, patient) %>% summarise(numberVariants = n(), avgExpression = mean(expression))
-
-ggplot(kircMutationsPerGene) +
-  geom_raster(mapping = aes(x = gene, fill = avgExpression, y = numberVariants)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  scale_fill_gradientn(colours=c("#56B4E9","#D55E00")) +
-  labs( x = "Gene", y = "Number of Variants per Patient", fill = "Average Gene Expression", title ="KIRC: The Effect of the Number of Variants on Gene Expression in Normal Tissue")
-
-ggsave("kircMutationsPerGene.png")
 ```
 
 
+### Combine KIRC expression and genotype data
+```{r}
+kircGenotypeData <- read_tsv("kirc_gemini_query_tidy_simplifiedGenotype.vcf")
 
+kircCombinedData <- inner_join(kircTotalDataTsgTidy, kircGenotypeData)
+
+# Create a dataset with depths 20 or above
+kircCombinedDataDepth20Above <- filter(kircCombinedData, depth >= 20)
+```
+
+```{r}
+# Impact Severity
+#ggplot(kircCombinedDataDepth20Above) +
+  #geom_boxplot(mapping = aes(x = gene, y = expression, color = impact_severity)) +
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  #ggtitle("KIRC: Impact Severity on Gene Expression in Normal Tissue")
+
+#ggsave("kircExpressionByImpactSeverity.png", width = 20, height = 10)
+
+# Genotype
+ggplot(kircCombinedDataDepth20Above) +
+  geom_boxplot(mapping = aes(x = gene, y = expression, color = genotype)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("KIRC: Genotype Effect on Gene Expression in Normal Tissue")
+
+ggsave("kircExpressionByGenotype.png", width = 20, height = 10)
+
+# Mutations per gene
+#kircMutationsPerGene <- group_by(kircCombinedDataDepth20Above, gene, patient) %>% summarise(numberVariants = n(), avgExpression = mean(expression))
+
+#ggplot(kircMutationsPerGene) +
+  #geom_raster(mapping = aes(x = gene, fill = avgExpression, y = numberVariants)) +
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  #scale_fill_gradientn(colours=c("#56B4E9","#D55E00")) +
+  #labs( x = "Gene", y = "Number of Variants per Patient", fill = "Average Gene Expression", title ="KIRC: The Effect of the Number of Variants on Gene Expression in Normal Tissue")
+
+#ggsave("kircMutationsPerGene.png")
+```
+
+### BRCA: Create individual plots for each gene, looking at effect of genotype on exprssion. Expression has been log transformed
+```{r}
+for (i in vectorTSG) {
+  temp <- filter(brcaCombinedDataDepth20Above, gene == i)
+  (ggplot(temp) +
+  geom_boxplot(mapping = aes(x = gene, y = log(expression), color = genotype)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("BRCA: Genotype Effect on Gene Expression in Normal Tissue"))
+  
+  file <- paste("brca_individual_gene_plots/", "brca", i, ".png", sep = "")
+  ggsave(file)
+}
+
+```
+
+### KIRC: Create individual plots for each gene, looking at effect of genotype on exprssion. Expression has been log transformed
+```{r}
+for (i in vectorTSG) {
+  temp <- filter(kircCombinedDataDepth20Above, gene == i)
+  (ggplot(temp) +
+  geom_boxplot(mapping = aes(x = gene, y = log(expression), color = genotype)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("KIRC: Genotype Effect on Gene Expression in Normal Tissue"))
+  
+  file <- paste("kirc_individual_gene_plots/", "kirc", i, ".png", sep = "")
+  ggsave(file)
+}
+
+```
 
 ### To be used when genotype data is brought in to R to make paitent names shorter.
 ```{python}
@@ -341,4 +300,48 @@ ggsave("kircMutationsPerGene.png")
         #else:
             #line = re.sub(r"-\d\d\w-\w\d\d\w-\d\d", r"", line)
             #writeFile.write(line)
+```
+
+###Boxplot n genes with highest or lowest standard deviation
+```{r}
+#Function to plot top or bottom n genes with highest or lowest standard deviation, default is top 10 genes
+#boxPlotGenesBySd <- function(tidyDataSet, tsgSummary, howManyGenes = 10){
+  #Determine which genes have highest standard deviation
+  #genesWithHighestStDev <- top_n(tsgSummary, n = howManyGenes, stDev) %>% pull(gene)
+  #print(filter(tidyDataSet, gene %in% genesWithHighestStDev) %>% ggplot(aes(gene, expression)) + geom_boxplot() 
+        #+ theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5)))
+#}
+
+#Boxplot of top 5 genes BRCA
+#boxPlotGenesBySd(brcaTotalDataTsgTidy, brcaTotalDataTsgSummary, 5)
+
+#Use to save plot as png
+#ggsave("brcaBoxPlotTop5.png")
+
+#Boxplot of top 10 genes BRCA
+#boxPlotGenesBySd(brcaTotalDataTsgTidy, brcaTotalDataTsgSummary, 10)
+
+#Use to save plot as png
+#ggsave("brcaBoxPlotTop10.png")
+
+#Boxplot of top 5 genes KIRC
+#boxPlotGenesBySd(kircTotalDataTsgTidy, kircTotalDataTsgSummary, 5)
+
+#Use to save plot as png
+#ggsave("kircBoxPlotTop5.png")
+
+#Boxplot of top 10 genes BRCA
+#boxPlotGenesBySd(kircTotalDataTsgTidy, kircTotalDataTsgSummary, 10)
+
+#Use to save plot as png
+#ggsave("kircBoxPlotTop10.png")
+```
+
+### Summary of gene expression that includes median, mean, min value, max value, standard deviation (`stDev`), arranged in decending order by standard deviation
+```{r}
+#Breast Cancer Patients
+#brcaTotalDataTsgSummary <- group_by(brcaTotalDataTsgTidy, gene) %>% summarize(median = median(expression), mean = mean(expression), min = min(expression), max = max(expression), stDev = sd(expression)) %>% arrange(desc(stDev))
+
+#Kidney Renal Clear Cell Carcinoma Patients
+#kircTotalDataTsgSummary <- group_by(kircTotalDataTsgTidy, gene) %>% summarize(median = median(expression), mean = mean(expression), min = min(expression), max = max(expression), stDev = sd(expression)) %>% arrange(desc(stDev))
 ```
